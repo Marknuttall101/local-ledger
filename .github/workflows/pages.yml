@@ -1,0 +1,56 @@
+name: Deploy live demo
+
+# Publishes the static build to GitHub Pages. Runs only while the repository is public, and runs
+# automatically at the moment it is made public, so nothing goes live before then.
+on:
+  push:
+    branches: [main]
+  public:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+# Third-party actions are pinned to an exact commit so a moved tag can't change what runs here
+jobs:
+  build:
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      # No package install scripts run: none of the dependencies need one on Linux
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run build
+      # Pages can't send security headers, so the policy travels inside the page as a <meta> tag
+      - name: Built page carries the Content-Security-Policy (only itself and openrouter.ai)
+        run: grep -q "connect-src &#39;self&#39; https://openrouter.ai; " dist/index.html
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only this job can publish to Pages
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

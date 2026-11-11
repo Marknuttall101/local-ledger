@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-page: #f9f9f7;
+  --color-surface: #fcfcfb;
+  --color-ink: #0b0b0b;
+  --color-ink-2: #52514e;
+  --color-muted: #898781;
+  --color-grid: #e1e0d9;
+  --color-line: #c3c2b7;
+  --color-brand: #1c5cab;
+  --color-brand-soft: #cde2fb;
+  --color-good: #006300;
+  --color-good-soft: #e3f3e3;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fdf1d6;
+  --color-bad: #b42f2f;
+  --color-bad-soft: #fbe5e5;
+}
+
+html,
+body {
+  background: var(--color-page);
+  color: var(--color-ink);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recharts: keep chart text in the ink tokens */
+.recharts-cartesian-axis-tick-value {
+  fill: var(--color-muted);
+  font-size: 12px;
+}
