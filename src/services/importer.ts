@@ -108,6 +108,30 @@ export function suggestAccount(s: ParsedStatement, accounts: Account[]): string 
   return sameBank.find((a) => a.label.toLowerCase() === s.accountLabel.toLowerCase() && !(a.suffix && s.accountSuffix))?.id
 }
 
+export interface BatchAccount {
+  id: string
+  bank: string
+  label: string
+  from: string
+  to: string
+}
+
+/** Files that overlap in time and would go to an account made earlier in this batch are probably a different account */
+export function defaultAccountChoice(statement: ParsedStatement, fileName: string, accounts: Account[], batchAccounts: BatchAccount[]): { accountId?: string; name: string } {
+  const suggested = suggestAccount(statement, accounts)
+  const dates = statement.transactions.map((t) => t.date).sort()
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+  const overlapsBatch =
+    !!dates.length &&
+    batchAccounts.some(
+      (b) =>
+        (b.id === suggested || (same(b.bank, statement.bank) && same(b.label, statement.accountLabel))) && dates[0] <= b.to && dates[dates.length - 1] >= b.from,
+    )
+  return overlapsBatch
+    ? { accountId: undefined, name: fileName.replace(/\.[^.]+$/, '') || statement.accountLabel }
+    : { accountId: suggested, name: statement.accountLabel }
+}
+
 export async function categoriseContext(): Promise<CategoriseContext> {
   const [rules, insights, categories] = await Promise.all([db.rules.toArray(), db.insights.toArray(), db.categories.toArray()])
   return {

@@ -6,11 +6,13 @@ Local Ledger turns Australian bank statements (PDF or CSV) into a spending dashb
 
 ### Quick start (2 minutes, made-up data)
 
-1. Download the two example statements: [everyday account](https://github.com/Marknuttall101/local-ledger/raw/main/examples/sample-everyday-account.csv) and [credit card](https://github.com/Marknuttall101/local-ledger/raw/main/examples/sample-credit-card.csv). They cover a year of an invented person's banking.
+1. Download the two example statements: right-click each link and choose **Save link as** (a plain click just shows the file as text): [everyday account](https://github.com/Marknuttall101/local-ledger/raw/main/examples/sample-everyday-account.csv) and [credit card](https://github.com/Marknuttall101/local-ledger/raw/main/examples/sample-credit-card.csv). They cover a year of an invented person's banking.
 2. Open the [live demo](https://marknuttall101.github.io/local-ledger/) and drag both files onto the page.
-3. Check each preview and click **Looks right**. You'll then see the dashboard, subscriptions, savings ideas and flagged charges.
+3. Check each preview and click **Looks right**. For the credit card file, make sure **Which account is this?** says **A new account**. You'll then see the dashboard, subscriptions, savings ideas and flagged charges.
 
-To skip the download, click **Try it with example data** instead. **Settings → Your data → Delete all my data** clears it afterwards.
+Without an OpenRouter key, shops the app doesn't already know get a rough on-device guess, so your import will be rougher than the built-in example. To skip the download, click **Try it with example data** instead: its categories are pre-filled from a saved smart-sorting run, and nothing is sent. **Settings → Your data → Delete all my data** clears everything afterwards.
+
+To see the privacy design at work, open **What we send** (top right) for exactly what leaves the browser, and the **Audit** tab for how every transaction was sorted.
 
 ![Dashboard, using made-up example data](docs/screenshots/dashboard.png)
 
@@ -95,9 +97,9 @@ Each shop is asked about once, and the answer is cached. The following are filte
 | What | Where | Lasts | Cleared by |
 |---|---|---|---|
 | Transactions, accounts, categories, rules, corrections, review answers | The browser's IndexedDB, database `local-ledger` | Until cleared. It survives reloads and restarts, on this browser profile and device only. | Settings → Your data → **Delete all my data**, or clearing this site's data in the browser |
-| OpenRouter key (default) | `sessionStorage` | Until the tab is closed | Closing the tab, or Settings → Privacy → **Forget key** |
-| OpenRouter key ("Remember on this device") | `localStorage` | Until cleared | Settings → Privacy → **Forget key**, or clearing site data |
-| Page preferences (filters, sort order, open tab) | `localStorage` (`local-ledger.*`) | Until cleared | Clearing site data |
+| OpenRouter key (default) | `sessionStorage` | Until the tab is closed | Closing the tab, Settings → Privacy → **Forget key**, or **Delete all my data** |
+| OpenRouter key ("Remember on this device") | `localStorage` | Until cleared | Settings → Privacy → **Forget key**, **Delete all my data**, or clearing site data |
+| Page preferences (filters, search, sort order, open tab) | `localStorage` (`local-ledger.*`) | Until cleared | **Delete all my data**, or clearing site data |
 
 - Data never moves between devices or browsers on its own. To move it, use Settings → Your data → **Download backup** and **Restore a backup**. The backup file holds everything except the key.
 - The app asks the browser for persistent storage, so the data isn't evicted under storage pressure. Browsers can still remove it: Safari deletes a site's data after seven days without a visit, and private windows discard it on close. The app warns when persistence isn't granted.

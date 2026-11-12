@@ -104,11 +104,12 @@ export function TransactionEditor({ data, transaction: t, onClose }: { data: App
 
       <div className="mt-5 rounded-xl bg-black/[0.03] p-3 text-sm text-ink-2">
         <div>
-          How it was sorted: <strong className="text-ink">{sourceLabel(t)}</strong>
+          How it was sorted: <strong className="text-ink">{sourceLabel(t, data.isSample)}</strong>
         </div>
         {insight && (
           <div className="mt-1">
-            {insight.source === 'ai' ? 'The AI' : 'Offline guess'} suggested <strong className="text-ink">{data.categoryById.get(insight.categoryId)?.name ?? insight.categoryId}</strong> ({Math.round(insight.confidence * 100)}% sure)
+            {insight.source === 'ai' ? (data.isSample ? 'A saved AI answer' : 'The AI') : 'A rough guess'} suggested <strong className="text-ink">{data.categoryById.get(insight.categoryId)?.name ?? insight.categoryId}</strong>
+            {insight.source === 'ai' && ` (${Math.round(insight.confidence * 100)}% sure)`}
           </div>
         )}
       </div>

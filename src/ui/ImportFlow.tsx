@@ -4,7 +4,7 @@ import type { Account, CheckResult, CsvMapping, DateFormat, ParsedStatement, Sta
 
 const NEW_ACCOUNT = '__new__'
 import { chosenClassifier } from '../services/classifier'
-import { analyseFile, commitStatement, suggestAccount, type FileAnalysis, type ImportProgress } from '../services/importer'
+import { analyseFile, commitStatement, defaultAccountChoice, type BatchAccount, type FileAnalysis, type ImportProgress } from '../services/importer'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db/db'
 import { Badge, Button, Modal, PrivacyNote, Spinner } from './components'
@@ -39,6 +39,8 @@ export function ImportFlow({
   const [index, setIndex] = useState(0)
   const [step, setStep] = useState<Step>({ kind: 'analysing' })
   const [done, setDone] = useState<Done[]>([])
+  // Accounts this batch has written to, with the dates their files covered
+  const [batchAccounts, setBatchAccounts] = useState<BatchAccount[]>([])
   const file = files[index]
   const cleared = useRef(false)
   const accounts = useLiveQuery(() => db.accounts.toArray(), []) ?? []
@@ -90,6 +92,9 @@ export function ImportFlow({
       onProgress: (progress) => setStep({ kind: 'saving', progress, ai, local }),
     })
     saving.current = false
+    const dates = statement.transactions.map((t) => t.date).sort()
+    const accountLabel = (accountId && accounts.find((a) => a.id === accountId)?.label) || label?.trim() || statement.accountLabel
+    if (dates.length) setBatchAccounts((b) => [...b, { id: summary.accountId, bank: statement.bank, label: accountLabel, from: dates[0], to: dates[dates.length - 1] }])
     next({ fileName: file.name, added: summary.added, duplicates: summary.duplicates })
   }
 
@@ -122,7 +127,10 @@ export function ImportFlow({
 
       {step.kind === 'preview' && (
         <Preview
+          key={index}
           statement={step.analysis.statement}
+          fileName={file.name}
+          batchAccounts={batchAccounts}
           canFix={!!step.analysis.rows}
           accounts={replacingSample ? [] : accounts}
           onConfirm={(accountId, label) => save(step.analysis.statement, step.analysis.mapping, accountId, label)}
@@ -157,6 +165,8 @@ export function ImportFlow({
 
 function Preview({
   statement,
+  fileName,
+  batchAccounts,
   canFix,
   accounts,
   onConfirm,
@@ -164,14 +174,18 @@ function Preview({
   onCancel,
 }: {
   statement: ParsedStatement
+  fileName: string
+  batchAccounts: BatchAccount[]
   canFix: boolean
   accounts: Account[]
   onConfirm: (accountId?: string, label?: string) => void
   onFix: () => void
   onCancel: () => void
 }) {
-  const [accountId, setAccountId] = useState(() => suggestAccount(statement, accounts) ?? NEW_ACCOUNT)
+  const [choice] = useState(() => defaultAccountChoice(statement, fileName, accounts, batchAccounts))
+  const [accountId, setAccountId] = useState(choice.accountId ?? NEW_ACCOUNT)
   const [label, setLabel] = useState('')
+  const knownBank = statement.bank !== 'Unknown bank'
   const txs = statement.transactions
   const dates = txs.map((t) => t.date).sort()
   const out = txs.filter((t) => t.amount < 0).reduce((s, t) => s - t.amount, 0)
@@ -196,11 +210,15 @@ function Preview({
   return (
     <div>
       <div className="flex flex-wrap items-center gap-2">
-        {statement.check?.status === 'mismatch' ? <Badge tone="warn">Please check</Badge> : <Badge tone="good">{statement.check?.status === 'balanced' ? '✓ Checked' : '✓ Recognised'}</Badge>}
-        <span className="text-sm text-ink-2">{statement.bank}</span>
+        {statement.check?.status === 'mismatch' ? (
+          <Badge tone="warn">Please check</Badge>
+        ) : (
+          <Badge tone="good">{statement.check?.status === 'balanced' ? '✓ Checked' : knownBank ? '✓ Recognised' : '✓ Read'}</Badge>
+        )}
+        {knownBank && <span className="text-sm text-ink-2">{statement.bank}</span>}
       </div>
       <h2 className="mt-2 text-xl font-semibold">
-        {statement.accountLabel}
+        {choice.name}
         {statement.accountSuffix && <span className="font-normal text-muted"> ···{statement.accountSuffix}</span>}
       </h2>
       <p className="mt-1 text-ink-2">
@@ -229,7 +247,7 @@ function Preview({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             maxLength={60}
-            placeholder={`e.g. Business bank, My Visa — or leave blank for “${statement.accountLabel}”`}
+            placeholder={`e.g. Business bank, My Visa — or leave blank for “${choice.name}”`}
             className="mt-1 w-full rounded-lg border border-black/15 bg-surface px-2 py-1.5"
           />
           <span className="mt-1 block text-xs text-muted">This name is how Local Ledger tells your accounts apart. We never keep full account numbers.</span>
@@ -299,7 +317,7 @@ function Preview({
             Cancel
           </Button>
         </div>
-        <Button kind="primary" size="lg" onClick={() => (accountId === NEW_ACCOUNT ? onConfirm(undefined, label) : onConfirm(accountId))} autoFocus>
+        <Button kind="primary" size="lg" onClick={() => (accountId === NEW_ACCOUNT ? onConfirm(undefined, label.trim() || choice.name) : onConfirm(accountId))} autoFocus>
           Looks right →
         </Button>
       </div>

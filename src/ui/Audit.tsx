@@ -4,7 +4,7 @@ import { csvCell } from '../core/csvSafe'
 import type { CorrectionLog, Transaction } from '../core/types'
 import { db } from '../db/db'
 import { Badge, Button, Card, PageTitle, StatTile } from './components'
-import { accountName, dateLabel, money, money0, plural, sourceLabel } from './format'
+import { accountName, dateLabel, localIsoDate, money, money0, plural, sourceLabel } from './format'
 import { sortBy, type SortState } from './sort'
 import { SortHeader } from './SortControls'
 import { useStoredState } from './state'
@@ -114,7 +114,7 @@ export function Audit({ data }: { data: AppData }) {
     {
       shop: (s) => s.name,
       category: (s) => catName(s.categoryId),
-      how: (s) => sourceLabel(s.first),
+      how: (s) => sourceLabel(s.first, data.isSample),
       pick: (s) => (data.insights.get(s.key)?.source === 'ai' ? data.insights.get(s.key)!.confidence : -1),
       spend: (s) => s.spend,
     },
@@ -128,7 +128,7 @@ export function Audit({ data }: { data: AppData }) {
       statement: (t) => t.rawDescription,
       shop: (t) => t.merchant,
       category: (t) => catName(t.categoryId),
-      how: (t) => sourceLabel(t),
+      how: (t) => sourceLabel(t, data.isSample),
       amount: (t) => Math.abs(t.amount),
     },
   )
@@ -146,7 +146,7 @@ export function Audit({ data }: { data: AppData }) {
         t.merchant,
         cat?.name ?? t.categoryId,
         data.groupById.get(cat?.groupId ?? '')?.name ?? '',
-        sourceLabel(t),
+        sourceLabel(t, data.isSample),
         ins?.source === 'ai' ? catName(ins.categoryId) : '',
         ins?.source === 'ai' ? ins.confidence.toFixed(2) : '',
         t.amount.toFixed(2),
@@ -155,14 +155,14 @@ export function Audit({ data }: { data: AppData }) {
     const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n')
     const a = document.createElement('a')
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-    a.download = `local-ledger-audit-${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `local-ledger-audit-${localIsoDate()}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
   }
 
   const filters: Array<[SourceFilter, string, number?]> = [
     ['all', 'Everything'],
-    ['ai', 'Sorted by the AI', counts.ai],
+    ['ai', data.isSample ? 'Saved AI answers' : 'Sorted by the AI', counts.ai],
     ['builtin', 'Known shops', counts.builtin],
     ['you', 'Your choices', counts.you],
     ['changed', 'You changed'],
@@ -179,7 +179,11 @@ export function Audit({ data }: { data: AppData }) {
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label="Shops sorted by the AI" value={jevShops.length} sub={jevShops.length ? `average ${Math.round(avgConfidence * 100)}% sure` : 'none yet'} />
+        <StatTile
+          label={data.isSample ? 'Shops with saved AI answers' : 'Shops sorted by the AI'}
+          value={jevShops.length}
+          sub={data.isSample ? 'recorded for this example, nothing sent' : jevShops.length ? `average ${Math.round(avgConfidence * 100)}% sure` : 'none yet'}
+        />
         <StatTile
           label="AI agreed with you"
           value={reviewed.length ? `${Math.round((agreed / reviewed.length) * 100)}%` : '—'}
@@ -248,7 +252,7 @@ export function Audit({ data }: { data: AppData }) {
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">{catName(s.categoryId)}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink-2">{sourceLabel(s.first)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-ink-2">{sourceLabel(s.first, data.isSample)}</td>
                     <td className="whitespace-nowrap px-3 py-2 text-ink-2">
                       {ins?.source === 'ai' ? (
                         <>
@@ -294,7 +298,7 @@ export function Audit({ data }: { data: AppData }) {
                   </td>
                   <td className="max-w-48 truncate px-3 py-2 font-medium">{t.merchant}</td>
                   <td className="whitespace-nowrap px-3 py-2">{catName(t.categoryId)}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink-2">{sourceLabel(t)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-ink-2">{sourceLabel(t, data.isSample)}</td>
                   <td className={`tabular whitespace-nowrap px-4 py-2 text-right ${t.amount > 0 ? 'text-good' : ''}`}>{money(t.amount)}</td>
                 </tr>
               ))}

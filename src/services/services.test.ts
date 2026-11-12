@@ -6,10 +6,10 @@ import { findFraudFlags } from '../core/fraud'
 import { findSavings } from '../core/savings'
 import { detectSubscriptions } from '../core/subscriptions'
 import { db, setMeta, useDatabase } from '../db/db'
-import { changeCategory, deleteAllData, exportBackup, deleteView, importsNewestFirst, loadSampleData, markFraud, removeImport, renameByKeyword, renameMerchant, restoreBackup, saveView } from './actions'
+import { changeCategory, deleteAllData, exportBackup, deleteView, forgetBrowserStorage, importsNewestFirst, loadSampleData, markFraud, removeImport, renameByKeyword, renameMerchant, restoreBackup, saveView } from './actions'
 import { clearApiKey, setApiKey } from './apiKey'
 import { chosenClassifier, createAiClassifier, getSmartSorting, setSmartSorting } from './classifier'
-import { commitStatement, suggestAccount, updateStarterCategories } from './importer'
+import { commitStatement, defaultAccountChoice, suggestAccount, updateStarterCategories } from './importer'
 
 let n = 0
 beforeEach(async () => {
@@ -519,6 +519,10 @@ function withFakeBrowserStorage(): () => void {
       getItem: (k: string) => m.get(k) ?? null,
       setItem: (k: string, v: string) => void m.set(k, v),
       removeItem: (k: string) => void m.delete(k),
+      get length() {
+        return m.size
+      },
+      key: (i: number) => [...m.keys()][i] ?? null,
     }
   }
   const g = globalThis as { window?: unknown }
@@ -555,5 +559,59 @@ describe('restoring a backup', () => {
     expect(await db.transactions.count()).toBe(count)
     const badColour = await backupWith((t) => (t.groups[0].color = 'red; background: url(x)'))
     await expect(restoreBackup(badColour)).rejects.toThrow(/expected shape/)
+  })
+})
+
+describe('a second file in the same batch', () => {
+  const statement = (label: string, from: string, to: string) => ({
+    readerId: 'csv-saved',
+    bank: 'Unknown bank',
+    accountLabel: label,
+    warnings: [],
+    transactions: [
+      { date: from, rawDescription: 'SHOP ONE', amount: -5 },
+      { date: to, rawDescription: 'SHOP TWO', amount: -6 },
+    ],
+  })
+
+  it('defaults to a new account named after its own file when the dates overlap', async () => {
+    const first = await commitStatement(statement('sample-everyday-account', '2025-08-16', '2026-08-10'), 'sample-everyday-account.csv', fallbackClassifier)
+    const batch = [{ id: first.accountId, bank: 'Unknown bank', label: 'sample-everyday-account', from: '2025-08-16', to: '2026-08-10' }]
+    const second = statement('sample-everyday-account', '2025-08-18', '2026-08-13')
+    expect(defaultAccountChoice(second, 'sample-credit-card.csv', await db.accounts.toArray(), batch)).toEqual({ accountId: undefined, name: 'sample-credit-card' })
+    // Even before the new account shows up in the list
+    expect(defaultAccountChoice(second, 'sample-credit-card.csv', [], batch)).toEqual({ accountId: undefined, name: 'sample-credit-card' })
+  })
+
+  it('still joins the same account when the files are consecutive months', async () => {
+    const first = await commitStatement(statement('Everyday', '2026-01-01', '2026-01-31'), 'jan.csv', fallbackClassifier)
+    const batch = [{ id: first.accountId, bank: 'Unknown bank', label: 'Everyday', from: '2026-01-01', to: '2026-01-31' }]
+    expect(defaultAccountChoice(statement('Everyday', '2026-02-01', '2026-02-28'), 'feb.csv', await db.accounts.toArray(), batch)).toEqual({ accountId: first.accountId, name: 'Everyday' })
+  })
+
+  it('uses the usual match for a file from an earlier upload', async () => {
+    const first = await commitStatement(statement('Everyday', '2026-01-01', '2026-01-31'), 'jan.csv', fallbackClassifier)
+    expect(defaultAccountChoice(statement('Everyday', '2026-01-01', '2026-01-31'), 'jan-again.csv', await db.accounts.toArray(), [])).toEqual({ accountId: first.accountId, name: 'Everyday' })
+  })
+})
+
+describe('forgetting browser storage', () => {
+  it('clears page preferences such as the last search, and the key, but nothing belonging to other sites', () => {
+    const restore = withFakeBrowserStorage()
+    try {
+      const w = (globalThis as unknown as { window: { localStorage: Storage; sessionStorage: Storage } }).window
+      w.localStorage.setItem('local-ledger.transactions.search', '"rent"')
+      w.localStorage.setItem('local-ledger.dashboard.hidden', '[]')
+      w.localStorage.setItem('someone-else', 'keep')
+      setApiKey(TEST_KEY, true)
+      forgetBrowserStorage()
+      expect(w.localStorage.getItem('local-ledger.transactions.search')).toBeNull()
+      expect(w.localStorage.getItem('local-ledger.dashboard.hidden')).toBeNull()
+      expect(w.localStorage.getItem('someone-else')).toBe('keep')
+      expect(w.localStorage.length).toBe(1)
+      expect(w.sessionStorage.length).toBe(0)
+    } finally {
+      restore()
+    }
   })
 })

@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useRef, useState } from 'react'
 import { GROUP_PALETTE, INCOME_CATEGORY, TRANSFER_CATEGORY, UNCATEGORISED } from '../core/categories'
 import { db } from '../db/db'
-import { addCategory, addGroup, deleteAllData, deleteCategory, exportBackup, importsNewestFirst, removeImport, renameAccount, restoreBackup, updateCategory, updateGroup } from '../services/actions'
+import { addCategory, addGroup, deleteAllData, deleteCategory, forgetBrowserStorage, exportBackup, importsNewestFirst, removeImport, renameAccount, restoreBackup, updateCategory, updateGroup } from '../services/actions'
 import { getApiKey } from '../services/apiKey'
 import { createAiClassifier, getSmartSorting, setSmartSorting } from '../services/classifier'
 import { recheckUnsureShops, refreshCategories, unsureShops } from '../services/importer'
@@ -13,7 +13,7 @@ import { isDataKept } from '../services/storage'
 import { useStoredState } from './state'
 import { FindMatches } from './FindMatches'
 import { Badge, Button, Card, Dot, Modal, PageTitle } from './components'
-import { dateLabel, plural } from './format'
+import { dateLabel, localIsoDate, plural } from './format'
 import type { AppData } from './useAppData'
 
 type Tab = 'categories' | 'data' | 'privacy'
@@ -112,7 +112,7 @@ function Categories({ data }: { data: AppData }) {
                           className="hidden text-muted hover:text-bad group-hover:block"
                           title="Delete category"
                           onClick={() => {
-                            if (window.confirm(`Delete “${c.name}”? Its ${counts.get(c.id) ?? 0} transactions will become Uncategorised.`)) deleteCategory(c.id)
+                            if (window.confirm(`Delete “${c.name}”? Its ${plural(counts.get(c.id) ?? 0, 'transaction')} will become Uncategorised.`)) deleteCategory(c.id)
                           }}
                         >
                           ×
@@ -232,7 +232,7 @@ function DataTab({ data }: { data: AppData }) {
     const blob = await exportBackup()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `local-ledger-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `local-ledger-backup-${localIsoDate()}.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -256,7 +256,7 @@ function DataTab({ data }: { data: AppData }) {
                   .filter((i) => i.accountId === a.id)
                   .map((i) => (
                     <li key={i.id} className="flex items-center gap-2">
-                      <span>{`${i.fileName} (${plural(i.added, 'new transaction')}${i.skippedDuplicates ? `, ${i.skippedDuplicates} already had` : ''}) · ${dateLabel(i.at.slice(0, 10))}`}</span>
+                      <span>{`${i.fileName} (${plural(i.added, 'new transaction')}${i.skippedDuplicates ? `, ${i.skippedDuplicates} already had` : ''}) · ${dateLabel(localIsoDate(i.at))}`}</span>
                       <button className="text-bad hover:underline" onClick={() => setRemoving(i)}>
                         Remove
                       </button>
@@ -330,7 +330,7 @@ function DataTab({ data }: { data: AppData }) {
       <Card className="border-bad/30">
         <h2 className="text-lg font-semibold">Delete everything</h2>
         <p className="mt-1 text-sm text-ink-2">
-          Removes all statements, transactions, categories and settings from this browser. This can't be undone.
+          Removes all statements, transactions, categories and settings from this browser, including a saved OpenRouter key. This can't be undone.
         </p>
         <Button kind="danger" className="mt-3" onClick={() => setConfirmDelete(true)}>
           Delete all my data
@@ -376,6 +376,7 @@ function DataTab({ data }: { data: AppData }) {
               kind="danger"
               onClick={async () => {
                 await deleteAllData()
+                forgetBrowserStorage()
                 setConfirmDelete(false)
               }}
             >

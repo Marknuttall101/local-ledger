@@ -16,6 +16,12 @@ export function accountName(accounts: Account[], id: string): string {
 /** "2026-09-23" → "23 Sep 2026" */
 export const dateLabel = (iso: string) => `${+iso.slice(8, 10)} ${MONTHS[+iso.slice(5, 7) - 1]} ${iso.slice(0, 4)}`
 
+/** A moment (e.g. when a file was imported) as "2026-09-23" in this device's time zone, not UTC */
+export function localIsoDate(at: string | Date = new Date()): string {
+  const d = typeof at === 'string' ? new Date(at) : at
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** "2026-09-23" → "23 Sep" */
 export const shortDate = (iso: string) => `${+iso.slice(8, 10)} ${MONTHS[+iso.slice(5, 7) - 1]}`
 
@@ -37,8 +43,8 @@ export const cadenceLabel: Record<string, string> = {
 }
 
 
-/** Plain-English description of how a transaction got its category */
-export function sourceLabel(t: Transaction): string {
+/** Plain-English description of how a transaction got its category. `sample`: the built-in example, whose AI answers were recorded earlier, not asked for now */
+export function sourceLabel(t: Transaction, sample = false): string {
   if (t.manualOverride || t.categorySource === 'user') return 'You (this transaction only)'
   switch (t.categorySource) {
     case 'rule':
@@ -46,10 +52,10 @@ export function sourceLabel(t: Transaction): string {
     case 'builtin':
       return 'Known shop'
     case 'ai':
-      return `AI (${Math.round(t.confidence * 100)}% sure)`
+      return `${sample ? 'Saved AI answer' : 'AI'} (${Math.round(t.confidence * 100)}% sure)`
     case 'transfer':
       return 'Transfer between your accounts'
     default:
-      return t.confidence > 0 ? `Offline guess (${Math.round(t.confidence * 100)}% sure)` : 'Not sorted yet'
+      return t.confidence > 0 ? 'Rough guess' : 'Not sorted yet'
   }
 }

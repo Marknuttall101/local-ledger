@@ -64,7 +64,7 @@ export function Savings({ data, savings, nav }: { data: AppData; savings: Saving
               <p className="mt-1 text-sm text-ink-2">{s.detail}</p>
               {s.transactionIds.length > 0 && (
                 <Button size="sm" kind="ghost" className="-ml-2.5 mt-2" onClick={() => nav.go('transactions', { filter: { ids: s.transactionIds, label: s.title } })}>
-                  See the {s.transactionIds.length} transactions →
+                  {s.transactionIds.length === 1 ? 'See the transaction' : `See the ${s.transactionIds.length} transactions`} →
                 </Button>
               )}
             </div>

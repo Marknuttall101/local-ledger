@@ -55,12 +55,12 @@ export function findSavings(transactions: Transaction[], subscriptions: Subscrip
 
   feeCheck('foreign-fees', (t) => /^FOREIGN|INTERNATIONAL TRANSACTION FEE|O\/SEAS/i.test(t.rawDescription) && t.categoryId === 'bank-fees', (total, n) => ({
     title: `You paid ${money2(total)} in foreign transaction fees`,
-    detail: `${n} fees on overseas purchases. A card with no foreign transaction fees would avoid these completely.`,
+    detail: `${n === 1 ? '1 fee' : `${n} fees`} on overseas purchases. A card with no foreign transaction fees would avoid ${n === 1 ? 'it' : 'these'} completely.`,
     productSlot: 'no-foreign-fee-card',
   }))
   feeCheck('cash-advance', (t) => /CASH ADVANCE (FEE|INTEREST)|INTEREST CHARGES - CAS/i.test(t.rawDescription), (total, n) => ({
     title: `Cash advances cost you ${money2(total)} in fees and interest`,
-    detail: `${n} charges from taking cash out on a credit card. Using a debit card for cash avoids these fees and the higher interest rate.`,
+    detail: `${n === 1 ? '1 charge' : `${n} charges`} from taking cash out on a credit card. Using a debit card for cash avoids these fees and the higher interest rate.`,
     productSlot: 'debit-card',
   }))
   feeCheck('interest', (t) => t.categoryId === 'interest' && !/CAS/i.test(t.rawDescription), (total) => ({

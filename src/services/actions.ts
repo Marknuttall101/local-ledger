@@ -5,6 +5,7 @@ import type { Category, CategoryGroup, FraudVerdict, SavedView } from '../core/t
 import { merchantKeyOf } from '../core/clean'
 import { matchesKeyword } from '../core/keywords'
 import { ALL_TABLES, db, setMeta } from '../db/db'
+import { clearApiKey } from './apiKey'
 import { checkBackupTables, DEVICE_ONLY_SETTINGS } from './backup'
 import { commitStatement, reassignShops, refreshCategories } from './importer'
 
@@ -181,6 +182,24 @@ export async function deleteAllData() {
     await db.groups.bulkAdd(STARTER_GROUPS)
     await db.categories.bulkAdd(STARTER_CATEGORIES)
   })
+}
+
+/**
+ * Forget everything else this app keeps in browser storage: page preferences such as the last
+ * search, filters and sort order, and the OpenRouter key. Used by Settings → Delete all my data,
+ * whose wording promises everything stored in this browser goes.
+ */
+export function forgetBrowserStorage() {
+  clearApiKey()
+  for (const store of [() => window.localStorage, () => window.sessionStorage]) {
+    try {
+      const s = store()
+      const keys = Array.from({ length: s.length }, (_, i) => s.key(i)).filter((k): k is string => !!k?.startsWith('local-ledger.'))
+      for (const k of keys) s.removeItem(k)
+    } catch {
+      // Storage unavailable (private window): nothing was kept there
+    }
+  }
 }
 
 // ---- Saved views

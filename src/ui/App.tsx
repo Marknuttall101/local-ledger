@@ -213,7 +213,7 @@ export function App() {
         <div className="border-b border-black/10 bg-brand-soft/60">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
             <span>
-              You're exploring <strong>example data</strong> for a made-up person. Ready to see your own?
+              You're exploring <strong>example data</strong> for a made-up person. Categories are pre-filled from a saved smart-sorting run. Nothing was sent.
             </span>
             <div className="flex gap-2">
               <label>
